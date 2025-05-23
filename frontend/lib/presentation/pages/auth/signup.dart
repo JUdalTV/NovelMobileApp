@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../home/home.dart';
+import 'package:frontend/presentation/pages/main_screen.dart';
 import '../../../presentation/blocs/auth/auth_bloc.dart';
 import '../../../presentation/blocs/auth/auth_event.dart';
 import '../../../presentation/blocs/auth/auth_state.dart';
 import '../../../core/utils/input_validator.dart';
 import 'signin.dart';
+import '../../../domain/repositories/novel_repository.dart';
+import '../../../main.dart';
+import 'package:provider/provider.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -19,6 +22,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   // Controllers
   final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
@@ -29,6 +33,7 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   void dispose() {
     _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -37,12 +42,12 @@ class _SignupScreenState extends State<SignupScreen> {
   void _performSignUp(BuildContext context) {
     if (_formKey.currentState!.validate()) {
       context.read<AuthBloc>().add(
-            SignUpEvent(
-              username: _usernameController.text,
-              password: _passwordController.text,
-              confirmPassword: _confirmPasswordController.text,
-            ),
-          );
+        SignUpRequested(
+          email: _emailController.text,
+          password: _passwordController.text,
+          name: _usernameController.text,
+        ),
+      );
     }
   }
 
@@ -53,9 +58,10 @@ class _SignupScreenState extends State<SignupScreen> {
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is SignUpSuccess) {
+            final novelRepository = Provider.of<NovelRepository>(context, listen: false);
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => HomeScreen()),
+              MaterialPageRoute(builder: (context) => MainScreen(novelRepository: novelRepository)),
               (route) => false,
             );
           } else if (state is SignUpError) {
@@ -85,6 +91,11 @@ class _SignupScreenState extends State<SignupScreen> {
 
                       // Username Field
                       _buildUsernameField(),
+
+                      const SizedBox(height: 16),
+
+                      // Email Field
+                      _buildEmailField(),
 
                       const SizedBox(height: 16),
 
@@ -161,6 +172,32 @@ class _SignupScreenState extends State<SignupScreen> {
           decoration: _inputDecoration(
             hintText: 'Nhập tên đăng nhập',
             prefixIcon: Icons.person_outline,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmailField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Email',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey[800],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _emailController,
+          validator: InputValidator.validateEmail,
+          keyboardType: TextInputType.emailAddress,
+          decoration: _inputDecoration(
+            hintText: 'Nhập email',
+            prefixIcon: Icons.email_outlined,
           ),
         ),
       ],

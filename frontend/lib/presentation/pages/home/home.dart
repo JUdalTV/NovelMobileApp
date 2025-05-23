@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
-import '../../widgets/novel.dart';
-import '../../../domain/entities/noveltype.dart';
-import 'search.dart';
+import '../../widgets/novel_card.dart';
+import '../../../domain/entities/novel.dart';
+import '../search/search.dart';
 import 'bookshelf.dart';
-import '../reader/profile.dart';
-import 'world.dart';
+import '../profile/profile_screen.dart';
 import 'group.dart';
+import '../../../domain/repositories/novel_repository.dart';
+import '../novel/novel_screen.dart';
 
 class HomeScreen extends StatefulWidget {
+  final NovelRepository novelRepository;
+
+  const HomeScreen({
+    Key? key,
+    required this.novelRepository,
+  }) : super(key: key);
+
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 1; // Default to 'Truyện' tab
+  int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   
   // Mock featured novel data
@@ -21,20 +29,20 @@ class _HomeScreenState extends State<HomeScreen> {
     Novel(
       id: '1',
       title: 'Đô Thị Cực Phẩm Y Thần',
-      coverUrl: 'lib/data/assets/novel1.jpg',
-      chapter: 246,
+      coverImage: 'assets/novel1.jpg',
+      chapters: [],
     ),
     Novel(
       id: '2',
       title: 'Thành Thần Bắt Đầu Từ Thủy Hầu Tử',
-      coverUrl: 'lib/data/assets/novel2.jpg',
-      chapter: 30,
+      coverImage: 'assets/novel2.jpg',
+      chapters: [],
     ),
     Novel(
       id: '3',
       title: 'Phân diện đại sư huynh',
-      coverUrl: 'lib/data/assets/novel3.jpg',
-      chapter: 202,
+      coverImage: 'assets/novel3.jpg',
+      chapters: [],
     ),
   ];
 
@@ -43,77 +51,91 @@ class _HomeScreenState extends State<HomeScreen> {
     Novel(
       id: '4',
       title: 'Toàn Dân Chuyên Chức: Bị Động Cứu Thế',
-      coverUrl: 'lib/data/assets/novel4.jpg',
-      chapter: 76,
-      isNew: true,
+      coverImage: 'assets/novel4.jpg',
+      chapters: [],
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
     ),
     Novel(
       id: '5',
       title: 'Toàn Cầu Quỷ Dị Thời Đại',
-      coverUrl: 'lib/data/assets/novel5.jpg',
-      chapter: 462,
-      isNew: true,
+      coverImage: 'assets/novel5.jpg',
+      chapters: [],
+      createdAt: DateTime.now().subtract(const Duration(days: 2)),
     ),
     Novel(
       id: '6',
       title: 'Ta học Trầm Thần Trong Bệnh Viện T',
-      coverUrl: 'lib/data/assets/novel6.jpg',
-      chapter: 209,
-      isNew: true,
+      coverImage: 'assets/novel6.jpg',
+      chapters: [],
+      createdAt: DateTime.now().subtract(const Duration(days: 3)),
     ),
     Novel(
       id: '7',
       title: 'Phong Yêu Vấn Đạo',
-      coverUrl: 'lib/data/assets/novel7.jpg',
-      chapter: 146,
-      isNew: true,
+      coverImage: 'assets/novel7.jpg',
+      chapters: [],
+      createdAt: DateTime.now().subtract(const Duration(days: 4)),
     ),
     Novel(
       id: '8',
       title: 'Bắt Đầu Với Trăm Vạn Minh Tệ',
-      coverUrl: 'lib/data/assets/novel8.jpg',
-      chapter: 228,
-      isNew: true,
+      coverImage: 'assets/novel8.jpg',
+      chapters: [],
+      createdAt: DateTime.now().subtract(const Duration(days: 5)),
     ),
     Novel(
       id: '9',
       title: 'Thần Trò Chơi Dục Vọng',
-      coverUrl: 'lib/data/assets/novel9.jpg',
-      chapter: 86,
-      isNew: true,
+      coverImage: 'assets/novel9.jpg',
+      chapters: [],
+      createdAt: DateTime.now().subtract(const Duration(days: 6)),
     ),
   ];
   
-  final List<Widget> _pages = [
-    BookshelfScreen(),
-    Center(child: Text('Home Content')), // Will be replaced
-    WorldScreen(),
-    GroupsScreen(),
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+    BookshelfScreen(novelRepository: widget.novelRepository),
+    NovelScreen(novelRepository: widget.novelRepository),
+    SearchScreen(novelRepository: widget.novelRepository),
     ProfileScreen(),
   ];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _selectedIndex == 1 
-          ? _buildHomeContent() 
-          : _pages[_selectedIndex],
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).primaryColor,
-        unselectedItemColor: Colors.grey,
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
           });
         },
-        items: [
-          BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Tủ Sách'),
-          BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Truyện'),
-          BottomNavigationBarItem(icon: Icon(Icons.public), label: 'Thế Giới'),
-          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Nhóm dịch'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tôi'),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.book),
+            label: 'Tủ Sách',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.library_books),
+            label: 'Truyện',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: 'Tìm Kiếm',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Tôi',
+          ),
         ],
       ),
     );
@@ -160,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundImage: AssetImage('lib/data/assets/avt.jpg'),
+            backgroundImage: AssetImage('assets/avt.jpg'),
             radius: 16,
           ),
           SizedBox(width: 8),
@@ -169,7 +191,11 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SearchScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => SearchScreen(
+                      novelRepository: widget.novelRepository,
+                    ),
+                  ),
                 );
               },
               child: Container(
@@ -205,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Stack(
           children: [
             Image.asset(
-              'lib/data/assets/novel.jpg', 
+              'assets/novel.jpg', 
               width: double.infinity,
               height: double.infinity,
               fit: BoxFit.cover,
@@ -228,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.asset(
-                      'lib/data/assets/novel.jpg',
+                      'assets/novel.jpg',
                       width: 100,
                       height: 130,
                       fit: BoxFit.cover,
@@ -280,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCategoryButtons() {
-    return Container(
+    return SizedBox(
       height: 100,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -333,44 +359,16 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         SizedBox(height: 12),
-        Container(
+        SizedBox(
           height: 200,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: featuredNovels.length,
             itemBuilder: (context, index) {
-              return Container(
-                width: 150,
-                margin: EdgeInsets.only(right: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.asset(
-                          featuredNovels[index].coverUrl.replaceFirst('assets/', 'assets/'),
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      featuredNovels[index].title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    Text(
-                      'Chapter ${featuredNovels[index].chapter}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
+              return NovelCard(
+                novel: featuredNovels[index],
+                isGridItem: true,
+                novelRepository: widget.novelRepository,
               );
             },
           ),
@@ -409,7 +407,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           itemCount: recentlyUpdatedNovels.length,
           itemBuilder: (context, index) {
-            return NovelGridItem(novel: recentlyUpdatedNovels[index]);
+            return NovelCard(
+              novel: recentlyUpdatedNovels[index],
+              isGridItem: true,
+              novelRepository: widget.novelRepository,
+            );
           },
         ),
       ],

@@ -1,43 +1,46 @@
 import '../../domain/entities/user.dart';
 
-class UserModel extends User {
+class UserModel {
+  final String? id;
   final String? email;
-  final String? phoneNumber;
+  final String? username;
   final bool isVerified;
+  final String? token;
 
-  const UserModel({
-    required String id,
-    required String username,
-    required String password,
+  UserModel({
+    this.id,
     this.email,
-    this.phoneNumber,
+    this.username,
     this.isVerified = false,
-  }) : super(
-          id: id,
-          username: username,
-          email: email,
-          password: password,
-        );
+    this.token,
+  });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'],
-      username: json['username'],
-      email: json['email'],
-      phoneNumber: json['phone_number'],
-      password: json['password'],
-      isVerified: json['is_verified'] ?? false,
+      id: json['id'] as String?,
+      email: json['email'] as String?,
+      username: json['username'] as String?,
+      isVerified: json['is_verified'] as bool? ?? false,
+      token: json['token'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'username': username,
       'email': email,
-      'phone_number': phoneNumber,
-      'password': password,
+      'username': username,
       'is_verified': isVerified,
+      'token': token,
     };
+  }
+
+  User toEntity() {
+    return User(
+      id: id,
+      username: username,
+      email: email,
+      // avatar, role, createdAt, updatedAt không có trong UserModel, nếu cần thì bổ sung thêm field vào UserModel
+    );
   }
 }

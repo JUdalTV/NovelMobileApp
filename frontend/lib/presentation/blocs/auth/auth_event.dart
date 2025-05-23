@@ -7,33 +7,50 @@ abstract class AuthEvent extends Equatable {
   List<Object> get props => [];
 }
 
-class SignInEvent extends AuthEvent {
-  final String username;
-  final String password;
+class AppStarted extends AuthEvent {}
 
-  const SignInEvent({
-    required this.username,
+class SignInRequested extends AuthEvent {
+  final String email;
+  final String password;
+  final bool rememberMe;
+
+  const SignInRequested({
+    required this.email,
     required this.password,
+    this.rememberMe = false,
   });
 
   @override
-  List<Object> get props => [username, password];
+  List<Object> get props => [email, password, rememberMe];
 }
 
-class SignUpEvent extends AuthEvent {
-  final String username;
+class SignUpRequested extends AuthEvent {
+  final String email;
   final String password;
-  final String confirmPassword;
+  final String name;
 
-  const SignUpEvent({
-    required this.username,
+  const SignUpRequested({
+    required this.email,
     required this.password,
-    required this.confirmPassword,
+    required this.name,
   });
 
   @override
-  List<Object> get props => [username, password, confirmPassword];
+  List<Object> get props => [email, password, name];
 }
+
+class SignOutRequested extends AuthEvent {}
+
+class AutoSignInEvent extends AuthEvent {
+  final String token;
+
+  const AutoSignInEvent({required this.token, required String email});
+
+  @override
+  List<Object> get props => [token];
+}
+
+class CheckAuthStatusEvent extends AuthEvent {}
 
 class VerifyIdEvent extends AuthEvent {
   final String userId;
@@ -47,5 +64,3 @@ class VerifyIdEvent extends AuthEvent {
   @override
   List<Object> get props => [userId, idImagePath];
 }
-
-class SignOutEvent extends AuthEvent {}

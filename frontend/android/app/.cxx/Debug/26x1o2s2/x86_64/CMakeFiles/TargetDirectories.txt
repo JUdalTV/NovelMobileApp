@@ -1,0 +1,2 @@
+D:/Code/Architecture/CLean_Architecture/Project/frontend/android/app/.cxx/Debug/26x1o2s2/x86_64/CMakeFiles/edit_cache.dir
+D:/Code/Architecture/CLean_Architecture/Project/frontend/android/app/.cxx/Debug/26x1o2s2/x86_64/CMakeFiles/rebuild_cache.dir

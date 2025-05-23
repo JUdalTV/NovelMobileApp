@@ -1,176 +1,147 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'dart:developer' as developer;
-import '../../../../core/errors/failures.dart';
 import '../../models/user_model.dart';
+import '../../../core/errors/exceptions.dart';
+import '../../../core/errors/failures.dart';
 
 abstract class AuthRemoteDataSource {
-  /// Gọi API đăng nhập
-  ///
-  /// Ném [ServerException] nếu có lỗi xảy ra
-  Future<UserModel> signIn(String username, String password);
-
-  /// Gọi API đăng ký
-  ///
-  /// Ném [ServerException] nếu có lỗi xảy ra
-  Future<UserModel> signUp(String username, String password);
-
-  /// Gọi API xác minh căn cước
-  ///
-  /// Ném [ServerException] nếu có lỗi xảy ra
-  Future<bool> verifyId(String userId, String idImagePath);
+  Future<UserModel> signIn(String email, String password);
+  Future<UserModel> signUp(String username, String email, String password);
+  Future<void> signOut();
+  Future<UserModel?> getCurrentUser();
 }
 
-class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
+class NodeAuthRemoteDataSource implements AuthRemoteDataSource {
   final http.Client client;
-  final String baseUrl = 'https://67a70d51510789ef0dfcd43d.mockapi.io/';
+  final String baseUrl;
+  String? _token;
 
-  AuthRemoteDataSourceImpl({required this.client});
+  NodeAuthRemoteDataSource({
+    required this.client,
+    required this.baseUrl,
+  });
 
-  @override
-  Future<UserModel> signIn(String username, String password) async {
-    developer.log('===== BẮT ĐẦU ĐĂNG NHẬP =====');
-    developer.log('Đang thực hiện đăng nhập với username: $username');
-
-    try {
-      final url = '$baseUrl/User';
-      developer.log('Đang gọi API đăng nhập: $url');
-
-      developer.log(
-          'Sử dụng tìm kiếm theo username và password thay vì endpoint Login');
-      // MockAPI thường không có endpoint Login riêng, mà dùng GET với filter
-      final loginUrl = Uri.parse('$url?username=$username&password=$password');
-      developer.log('URL đầy đủ: $loginUrl');
-
-      final response = await client.get(
-        loginUrl,
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      developer.log(
-          'Nhận được response đăng nhập với status code: ${response.statusCode}');
-      developer.log('Response header: ${response.headers}');
-      developer.log('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        try {
-          final List<dynamic> jsonResponse = json.decode(response.body);
-          developer.log('Đã parse JSON thành công: $jsonResponse');
-
-          if (jsonResponse.isEmpty) {
-            developer
-                .log('Không tìm thấy user với thông tin đăng nhập đã cung cấp');
-            throw InvalidCredentialsFailure();
-          }
-
-          // Lấy user đầu tiên từ danh sách kết quả
-          final user = UserModel.fromJson(jsonResponse[0]);
-          developer.log('Tạo UserModel thành công: ${user.toString()}');
-          return user;
-        } catch (e) {
-          if (e is InvalidCredentialsFailure) {
-            rethrow;
-          }
-          developer.log('Lỗi khi parse JSON hoặc tạo UserModel: $e', error: e);
-          throw ServerFailure();
-        }
-      } else if (response.statusCode == 401) {
-        developer.log('Đăng nhập thất bại: Thông tin đăng nhập không hợp lệ');
-        throw InvalidCredentialsFailure();
-      } else {
-        developer.log(
-            'Đăng nhập thất bại: Lỗi server với status code ${response.statusCode}');
-        throw ServerFailure();
-      }
-    } catch (e, stackTrace) {
-      if (e is InvalidCredentialsFailure) {
-        rethrow;
-      }
-      developer.log('Có lỗi xảy ra khi đăng nhập: $e',
-          error: e, stackTrace: stackTrace);
-      throw ServerFailure();
-    } finally {
-      developer.log('===== KẾT THÚC ĐĂNG NHẬP =====');
-    }
-  }
+  String? get token => _token;
 
   @override
-  Future<UserModel> signUp(String username, String password) async {
-    developer.log('===== BẮT ĐẦU ĐĂNG KÝ =====');
-    developer.log('Đang thực hiện đăng ký với username: $username');
-
+  Future<UserModel> signIn(String email, String password) async {
+    print('Đăng nhập với email: $email, password: $password');
+    print('API URL: $baseUrl/auth/login');
+    
     try {
-      // Cần kiểm tra URL của API đăng ký
-      // Thay đổi endpoint từ /register thành /User để phù hợp với cấu trúc của mockAPI
-      final url = '$baseUrl/User';
-      developer.log('Đang gọi API đăng ký: $url');
-
-      final body = json.encode({
-        'username': username,
+      final Map<String, dynamic> data = {
+        'email': email,
         'password': password,
-      });
-      developer.log('Body request đăng ký: $body');
-
-      final response = await client.post(
-        Uri.parse(url),
-        body: body,
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      developer.log(
-          'Nhận được response đăng ký với status code: ${response.statusCode}');
-      developer.log('Response header: ${response.headers}');
-      developer.log('Response body: ${response.body}');
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        try {
-          final jsonResponse = json.decode(response.body);
-          developer.log('Đã parse JSON thành công: $jsonResponse');
-          final user = UserModel.fromJson(jsonResponse);
-          developer.log('Tạo UserModel thành công: ${user.toString()}');
-          return user;
-        } catch (e) {
-          developer.log('Lỗi khi parse JSON hoặc tạo UserModel: $e', error: e);
-          throw ServerFailure();
-        }
-      } else if (response.statusCode == 409) {
-        developer.log('Đăng ký thất bại: Username đã tồn tại');
-        throw UserAlreadyExistsFailure();
-      } else {
-        developer.log(
-            'Đăng ký thất bại: Lỗi server với status code ${response.statusCode}');
-        throw ServerFailure();
-      }
-    } catch (e, stackTrace) {
-      developer.log('Có lỗi xảy ra khi đăng ký: $e',
-          error: e, stackTrace: stackTrace);
-      throw ServerFailure();
-    } finally {
-      developer.log('===== KẾT THÚC ĐĂNG KÝ =====');
-    }
-  }
-
-  @override
-  Future<bool> verifyId(String userId, String idImagePath) async {
-    // Thực hiện upload hình ảnh và xác minh ID
-    // Đây là một mẫu đơn giản, cần thêm logic xử lý upload file
-    try {
-      final response = await client.post(
-        Uri.parse('$baseUrl/auth/verify-id'),
-        body: json.encode({
-          'user_id': userId,
-          'id_image_path': idImagePath,
-        }),
-        headers: {'Content-Type': 'application/json'},
-      );
+      };
+      
+      final String encodedBody = json.encode(data);
+      print('Request body: $encodedBody');
+      
+      // Create a custom request to have more control
+      final request = http.Request('POST', Uri.parse('$baseUrl/auth/login'));
+      
+      // Set headers properly
+      request.headers['Content-Type'] = 'application/json';
+      request.headers['Accept'] = 'application/json';
+      
+      // Set the body
+      request.body = encodedBody;
+      
+      // Send the request and get a streamed response
+      final streamedResponse = await client.send(request);
+      
+      // Convert to a regular response
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        return true;
+        final jsonResponse = json.decode(response.body);
+        _token = jsonResponse['token'];
+        return UserModel.fromJson(jsonResponse['user']);
+      } else if (response.statusCode == 401) {
+        throw InvalidCredentialsException();
       } else {
-        throw VerificationFailure();
+        throw ServerException();
       }
     } catch (e) {
-      throw ServerFailure();
+      print('Lỗi khi đăng nhập: $e');
+      throw ServerException();
+    }
+  }
+
+  @override
+  Future<UserModel> signUp(String username, String email, String password) async {
+    print('Đăng ký với username: $username, email: $email, password: $password');
+    try {
+      // Create a custom request
+      final request = http.Request('POST', Uri.parse('$baseUrl/auth/register'));
+      
+      // Set headers properly
+      request.headers['Content-Type'] = 'application/json';
+      request.headers['Accept'] = 'application/json';
+      
+      // Set the body
+      request.body = json.encode({
+        'username': username,
+        'email': email,
+        'password': password,
+      });
+      
+      // Send the request and get a streamed response
+      final streamedResponse = await client.send(request);
+      
+      // Convert to a regular response
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 201) {
+        final jsonResponse = json.decode(response.body);
+        _token = jsonResponse['token'];
+        return UserModel.fromJson(jsonResponse['user']);
+      } else if (response.statusCode == 409) {
+        throw EmailAlreadyInUseException();
+      } else {
+        throw ServerException();
+      }
+    } catch (e) {
+      print('Lỗi khi đăng ký: $e');
+      throw ServerException();
+    }
+  }
+
+  @override
+  Future<void> signOut() async {
+    _token = null;
+  }
+
+  @override
+  Future<UserModel?> getCurrentUser() async {
+    if (_token == null) return null;
+
+    try {
+      final response = await client.get(
+        Uri.parse('$baseUrl/auth/me'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+        return UserModel.fromJson(jsonResponse['user']);
+      } else if (response.statusCode == 401) {
+        _token = null;
+        return null;
+      } else {
+        throw ServerException();
+      }
+    } catch (e) {
+      throw ServerException();
     }
   }
 }

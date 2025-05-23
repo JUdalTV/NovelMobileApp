@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:frontend/presentation/pages/main_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../blocs/auth/auth_bloc.dart'; 
 import '../../blocs/auth/auth_event.dart';
 import '../../blocs/auth/auth_state.dart';
 import '../../../core/utils/input_validator.dart';
 import 'signup.dart';
-import '../home/home.dart';
+import '../../../domain/repositories/novel_repository.dart';
+import '../../../main.dart';
+import 'package:provider/provider.dart';
 
 class SigninScreen extends StatefulWidget {
   const SigninScreen({super.key});
@@ -16,94 +20,148 @@ class SigninScreen extends StatefulWidget {
 
 class _SigninScreenState extends State<SigninScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSavedAuth();
+    _loadSavedCredentials();
+  }
+  Future<void> _checkSavedAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    
+    if (token != null) {
+      if (!mounted) return;
+      context.read<AuthBloc>().add(AutoSignInEvent(token: token, email: ''));
+    }
+  }
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final rememberMe = prefs.getBool('rememberMe') ?? false;
+    if (rememberMe) {
+      setState(() {
+        _emailController.text = prefs.getString('email') ?? '';
+        _rememberMe = true;
+      });
+    }
+  }
+
+Future<void> _saveCredentials() async {
+  final prefs = await SharedPreferences.getInstance();
+  if (_rememberMe) {
+    await prefs.setString('email', _emailController.text);
+    await prefs.setBool('rememberMe', true);
+  } else {
+    await prefs.remove('email');
+    await prefs.remove('password');
+    await prefs.setBool('rememberMe', false);
+  }
+}
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _performSignIn(BuildContext context) {
-    if (_formKey.currentState!.validate()) {
-      context.read<AuthBloc>().add(
-            SignInEvent(
-              username: _usernameController.text,
-              password: _passwordController.text,
-            ),
-          );
-    }
+void _performSignIn(BuildContext context) async {
+  if (_formKey.currentState!.validate()) {
+    await _saveCredentials(); // Lưu credentials nếu remember me được chọn
+    
+    context.read<AuthBloc>().add(
+      SignInRequested(
+        email: _emailController.text,
+        password: _passwordController.text,
+        rememberMe: _rememberMe,
+      ),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: BlocListener<AuthBloc, AuthState>(
+      body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
-          if (state is Authenticated) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => HomeScreen()),
-            );
-          } else if (state is SignInError) {
+          if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
                 backgroundColor: Colors.red,
               ),
             );
+          } else if (state is Authenticated) {
+            final novelRepository = Provider.of<NovelRepository>(context, listen: false);
+            
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (context) => MainScreen(
+                  novelRepository: novelRepository,
+                ),
+              ),
+              (route) => false,
+            );
           }
         },
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: 400, // Giới hạn chiều rộng
-                ),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Header
-                      _buildHeader(),
+        builder: (context, state) {
+          return SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 400, // Giới hạn chiều rộng
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Header
+                          _buildHeader(),
 
-                      const SizedBox(height: 32),
+                          const SizedBox(height: 32),
 
-                      // Username Field
-                      _buildUsernameField(),
+                          // Email Field
+                          _buildEmailField(),
 
-                      const SizedBox(height: 16),
+                          const SizedBox(height: 16),
 
-                      // Password Field
-                      _buildPasswordField(),
+                          // Password Field
+                          _buildPasswordField(),
 
-                      const SizedBox(height: 24),
+                          const SizedBox(height: 16),
 
-                      // Sign In Button
-                      _buildSignInButton(),
+                          // Remember Me Checkbox
+                          _buildRememberMe(),
 
-                      const SizedBox(height: 16),
+                          const SizedBox(height: 8),
 
-                      // Sign Up Link
-                      _buildSignUpLink(),
-                    ],
+                          // Sign In Button
+                          _buildSignInButton(),
+
+                          const SizedBox(height: 16),
+
+                          // Sign Up Link
+                          _buildSignUpLink(),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -134,12 +192,12 @@ class _SigninScreenState extends State<SigninScreen> {
     );
   }
 
-  Widget _buildUsernameField() {
+  Widget _buildEmailField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Tên đăng nhập',
+          'Email',
           style: TextStyle(
             fontSize: 16,
             color: Colors.grey[800],
@@ -148,11 +206,12 @@ class _SigninScreenState extends State<SigninScreen> {
         ),
         const SizedBox(height: 8),
         TextFormField(
-          controller: _usernameController,
-          validator: InputValidator.validateUsername,
+          controller: _emailController,
+          validator: InputValidator.validateEmail,
+          keyboardType: TextInputType.emailAddress,
           decoration: _inputDecoration(
-            hintText: 'Nhập tên đăng nhập',
-            prefixIcon: Icons.person_outline,
+            hintText: 'Nhập email',
+            prefixIcon: Icons.email_outlined,
           ),
         ),
       ],
@@ -287,4 +346,34 @@ class _SigninScreenState extends State<SigninScreen> {
       ),
     );
   }
+  Widget _buildRememberMe() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    child: Row(
+      children: [
+        SizedBox(
+          height: 24,
+          width: 24,
+          child: Checkbox(
+            value: _rememberMe,
+            onChanged: (value) {
+              setState(() {
+                _rememberMe = value!;
+              });
+            },
+            activeColor: const Color(0xff078fff),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'Ghi nhớ tài khoản',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[700],
+          ),
+        ),
+      ],
+    ),
+  );
+}
 }
